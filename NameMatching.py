@@ -46,7 +46,7 @@ def generate_mask(patient_path):
         else:
             RS_name = "Physician"
         
-        print("work on RS structure ",RS_name,'+++++++++++++++++++++++++++')
+      #  print("work on RS structure ",RS_name,'+++++++++++++++++++++++++++')
         all_data[RS_name] = {}
         all_data[RS_name]["zxy_dimention"] =[]
         for s in os.listdir(path):
@@ -63,15 +63,15 @@ def generate_mask(patient_path):
         for i in range(0,len(roi_seq_names)):
             
             roi_name = roi_seq_names[i]
-            print("work on organ", roi_name,'_____________')
+       #     print("work on organ", roi_name,'_____________')
             ### convert a organ name to known matching, PC --- Musc_Constrict
             if RS_name == "Physician":
                 if len(roi_name)>2 and roi_name[0:2]=='PC'  :
                     roi_name = 'Musc_Constrict' + roi_name[3:len(roi_name)] 
-                    print("the roi name converted to ", roi_name,'============')
+       #             print("the roi name converted to ", roi_name,'============')
                 if len(roi_name)>3 and roi_name[0:3]=='SMG':
                     roi_name = 'Glnd_Submand_' + roi_name[3:len(roi_name)] 
-                    print("the roi name converted to ", roi_name,'============')
+                   # print("the roi name converted to ", roi_name,'============')
             
             #
             
@@ -123,15 +123,15 @@ def generate_physician_mask(patient_path):
         for i in range(0,len(roi_seq_names)):
             
             roi_name = roi_seq_names[i]
-            print("work on organ", roi_name,'_____________')
+          #  print("work on organ", roi_name,'_____________')
             ### convert a organ name to known matching, PC --- Musc_Constrict
             if RS_name == "Physician":
                 if len(roi_name)>2 and roi_name[0:2]=='PC'  :
                     roi_name = 'Musc_Constrict' + roi_name[3:len(roi_name)] 
-                    print("the roi name converted to ", roi_name,'============')
+           #         print("the roi name converted to ", roi_name,'============')
                 if len(roi_name)>3 and roi_name[0:3]=='SMG':
                     roi_name = 'Glnd_Submand_' + roi_name[3:len(roi_name)] 
-                    print("the roi name converted to ", roi_name,'============')
+           #         print("the roi name converted to ", roi_name,'============')
             
             #
             
@@ -156,6 +156,17 @@ def Rename_fuzzy(all_data, RS_name, standard_list, thre):
     curr_data = all_data[RS_name]
     name_list = list(curr_data.keys())
     scores = {}
+    standard_list_lower = standard_list.copy()
+    
+    for i in range(0,len(standard_list)):
+        standard_list_lower[i] = standard_list_lower[i].lower()
+    
+    standard_map = dict()
+    
+    for i in range(0,len(standard_list)):
+        standard_map[standard_list_lower[i]] = standard_list[i]
+    
+    
     for organ in name_list:
         if(organ=='image' or organ=='zxy_dimention'):
             continue
@@ -163,27 +174,28 @@ def Rename_fuzzy(all_data, RS_name, standard_list, thre):
         if('PTV' in organ) or ('GTV' in organ) or ('CTV' in organ) or ('ITV' in organ):
             print(organ, ' is  a target structure')
             continue
-        print('start work on organ')
-        cand = process.extractOne(organ, standard_list, scorer=fuzz.token_sort_ratio)
+  #      print('start work on organ')
+        
+        cand = process.extractOne(organ.lower(), standard_list_lower, scorer=fuzz.ratio)
         if(cand[1]>=thre):
             if(cand[0] in scores.keys()):
-                score1 = fuzz.token_sort_ratio(organ, cand[0])
-                score2 = fuzz.token_sort_ratio(scores[cand[0]], cand[0])
+                score1 = fuzz.ratio(organ.lower(), cand[0])
+                score2 = fuzz.ratio(scores[cand[0]].lower(), cand[0])
                 if(score1>score2):
                     curr_data[scores[cand[0]]]['stdName'] = "NA"
-                    curr_data[organ]['stdName'] = cand[0]
+                    curr_data[organ]['stdName'] = standard_map[cand[0]]
                     scores[cand[0]] = organ
                     print(organ," --> ", curr_data[organ]["stdName"], ' score is ', cand[1])
                 else:
                     curr_data[organ]['stdName'] = "NA"
             else:
-                curr_data[organ]['stdName'] = cand[0]
+                curr_data[organ]['stdName'] = standard_map[cand[0]]
                 scores[cand[0]] = organ
                 print(organ," --> ", curr_data[organ]["stdName"], ' score is ', cand[1])
         else:
           #  print(curr_data[organ])
             curr_data[organ]['stdName'] = "NA"
-            print(organ," --> ", curr_data[organ]["stdName"])
+     #       print(organ," --> ", curr_data[organ]["stdName"])
     for organ in name_list:
         if(organ=='image'):
             continue
@@ -195,6 +207,10 @@ def Rename_fuzzy(all_data, RS_name, standard_list, thre):
 
 ## calculate relative position and distance for two organs
 def geometry_relation(mask_A, mask_B, vec_ref=[[1,0,0],[0,1,0],[0,0,1]]):
+    """Get the geometry relationship between two strucures, we use this function to find the L to R Parotid direction.
+    
+    """
+    
     if mask_A.shape != mask_B.shape:
         raise ValueError('Please resample the data to same position is!')
     result = {}
@@ -212,6 +228,11 @@ def geometry_relation(mask_A, mask_B, vec_ref=[[1,0,0],[0,1,0],[0,0,1]]):
 ############################# dis_similiairty ########################################################################
 
 def dir_similirity(vec1, vec2):
+    """
+    
+    """
+    
+    
     if len(vec1)!=3 or len(vec2)!=3:
         raise ValueError('need to be 3d vector!')
     
@@ -236,6 +257,10 @@ def dir_similirity(vec1, vec2):
 #####################################################################################
 
 def angle_3axl(vec1, ref):
+    """ get the vector angle to reference z, x, y axis
+    
+    """
+    
     if len(vec1)!=3:
         raise ValueError('need to be 3d vector!')
     
@@ -264,6 +289,10 @@ def angle_3axl(vec1, ref):
 ################################################################################################
 
 def find_axis(mask):
+    """ find the axis of a cylindrical shape in sup-inf direction
+    
+    """
+    
     index = np.where(mask==1)
     top = max(index[0])
     bottom = min(index[0])
@@ -278,6 +307,10 @@ def find_axis(mask):
 
 #################################################################################################
 def find_ref_vec(curr_data):
+    """
+        find reference axis, z--Brainstem, x
+    
+    """
     ref_LR = np.array([0,0,0])
     ref_SI = np.array([0,0,0])
     for organ in curr_data.keys():
@@ -491,8 +524,8 @@ def check_stdName(cu_data, standard_list, geo_relation, threshold, geo_stat):
             continue
         if('PTV' in organ) or ('GTV' in organ) or ('CTV' in organ) or ('ITV' in organ):
             continue
-        if curr_data[organ]['stdName']=="Parotid_R" or curr_data[organ]['stdName']=="Parotid_L" or curr_data[organ]['stdName']=="Cochlea_L" or curr_data[organ]['stdName']=="Cochlea_R":
-            if fuzz.token_sort_ratio(organ, curr_data[organ]['stdName'])>threshold:
+        if curr_data[organ]['stdName']=="Parotid_R" or curr_data[organ]['stdName']=="Parotid_L" or curr_data[organ]['stdName']=="Cochlea_L" or curr_data[organ]['stdName']=="Cochlea_L":
+            if fuzz.ratio(organ.lower(), curr_data[organ]['stdName'].lower())>threshold:
                 available_ref[curr_data[organ]['stdName']] = organ
     print("the available reference organs are ", available_ref.keys())
     
@@ -501,7 +534,7 @@ def check_stdName(cu_data, standard_list, geo_relation, threshold, geo_stat):
     ref_vec = find_ref_vec(curr_data)
     if (ref_vec[0]==np.array([0,0,0])).all():
         print(" Couldn't find the reference axis!!")
-        return
+        return None
     
     # start to check if there is any reference for each organ to check and check their relative position
     for organ in curr_data.keys():
@@ -518,9 +551,9 @@ def check_stdName(cu_data, standard_list, geo_relation, threshold, geo_stat):
             print('The organ', organ, " does not have initial stndard Name")
             continue
         cand = curr_data[organ]['stdName']
-        fuzz_score = fuzz.token_sort_ratio(organ, cand)
+        fuzz_score = fuzz.ratio(organ.lower(), cand.lower())
         print('The name mathcing score is ', fuzz_score)
-        if  fuzz.token_sort_ratio(organ, cand)>threshold:
+        if  fuzz.ratio(organ.lower(), cand.lower())>threshold:
             continue
     
         if cand not in geo_relation.keys():
